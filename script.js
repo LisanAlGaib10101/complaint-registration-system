@@ -8,101 +8,174 @@ const saveComplaints = (data) => localStorage.setItem(LS_KEY, JSON.stringify(dat
 
 const toast = (msg) => {
   let t = $('#toast');
-  if(!t){ t = document.createElement('div'); t.id='toast'; Object.assign(t.style,{position:'fixed',bottom:'16px',right:'16px',background:'#263238',color:'#fff',padding:'10px 14px',borderRadius:'8px'}); document.body.appendChild(t); }
-  t.textContent = msg; t.style.opacity='1'; setTimeout(()=> t.style.opacity='0', 2000);
+  if(!t){ 
+    t = document.createElement('div'); 
+    t.id='toast'; 
+    document.body.appendChild(t); 
+  }
+  t.textContent = msg; 
+  t.style.opacity='1'; 
+  setTimeout(()=> t.style.opacity='0', 2500);
 };
 
-const deptFilter = $('#deptFilter');
-const statusFilter = $('#statusFilter');
-const searchInput = $('#searchInput');
-const tbody = $('#complaintsTable tbody');
-const cards = $('#complaintCards');
+// Initialize after DOM is ready
+function init() {
+  const deptFilter = $('#deptFilter');
+  const statusFilter = $('#statusFilter');
+  const searchInput = $('#searchInput');
+  const tbody = $('#complaintsTable tbody');
+  const cards = $('#complaintCards');
+  const form = $('#complaintForm');
 
-const buildDeptOptions = () => {
-  const depts = Array.from(new Set(getComplaints().map(c => c.department))).sort();
-  deptFilter.innerHTML = `<option value="all">All departments</option>` + depts.map(d=>`<option value="${d}">${d}</option>`).join('');
-};
+  // Guard against missing elements
+  if (!tbody || !cards || !form) {
+    console.error('Required DOM elements not found');
+    return;
+  }
 
-const filters = () => ({
-  q: (searchInput.value || '').toLowerCase(),
-  dept: deptFilter?.value || 'all',
-  status: statusFilter?.value || 'all'
-});
+  const buildDeptOptions = () => {
+    if (!deptFilter) return;
+    const depts = Array.from(new Set(getComplaints().map(c => c.department))).sort();
+    deptFilter.innerHTML = `<option value="all">All departments</option>` + 
+      depts.map(d => `<option value="${d}">${d}</option>`).join('');
+  };
 
-const applyFilters = (list) => {
-  const f = filters();
-  return list.filter(c => {
-    const matchesQ = [c.name, c.department, c.title].some(v => (v||'').toLowerCase().includes(f.q));
-    const matchesDept = f.dept === 'all' || c.department === f.dept;
-    const matchesStatus = f.status === 'all' || c.status === f.status;
-    return matchesQ && matchesDept && matchesStatus;
+  const filters = () => ({
+    q: (searchInput?.value || '').toLowerCase(),
+    dept: deptFilter?.value || 'all',
+    status: statusFilter?.value || 'all'
   });
-};
 
-function render(){
-  const data = applyFilters(getComplaints());
-  // Table
-  tbody.innerHTML = data.map((c, idx) => `
-    <tr>
-      <td>${c.name}</td>
-      <td>${c.department}</td>
-      <td>${c.title}</td>
-      <td>${c.description.length>120? c.description.slice(0,120)+'…' : c.description}</td>
-      <td style="font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">${c.time || ''}</td>
-      <td><span class="badge ${c.status}">${c.status==='pending'?'• Pending':'✓ Resolved'}</span></td>
-      <td>
-        <button class="btn btn-ghost" data-act="toggle" data-idx="${idx}">${c.status==='pending'?'Mark resolved':'Mark pending'}</button>
-        <button class="btn btn-danger" data-act="delete" data-idx="${idx}">Delete</button>
-      </td>
-    </tr>`).join('');
+  const applyFilters = (list) => {
+    const f = filters();
+    return list.filter(c => {
+      const matchesQ = [c.name, c.department, c.title].some(v => (v||'').toLowerCase().includes(f.q));
+      const matchesDept = f.dept === 'all' || c.department === f.dept;
+      const matchesStatus = f.status === 'all' || c.status === f.status;
+      return matchesQ && matchesDept && matchesStatus;
+    });
+  };
 
-  // Cards (mobile)
-  cards.innerHTML = data.map((c, idx) => `
-    <div class="complaint-card">
-      <div class="title">${c.title}</div>
-      <div class="row"><span>${c.name}</span><span>${c.department}</span></div>
-      <div>${c.description}</div>
-      <div class="row"><span>${c.time || ''}</span><span class="badge ${c.status}">${c.status==='pending'?'• Pending':'✓ Resolved'}</span></div>
-      <div class="card-actions">
-        <button class="btn btn-ghost" data-act="toggle" data-idx="${idx}">${c.status==='pending'?'Resolve':'Reopen'}</button>
-        <button class="btn btn-danger" data-act="delete" data-idx="${idx}">Delete</button>
-      </div>
-    </div>`).join('');
-}
+  function render() {
+    const allData = getComplaints();
+    const data = applyFilters(allData);
+    
+    // Render table
+    tbody.innerHTML = data.length ? data.map((c, idx) => {
+      // Find real index in unfiltered array for actions
+      const realIdx = allData.findIndex(item => 
+        item.name === c.name && 
+        item.department === c.department && 
+        item.time === c.time
+      );
+      
+      return `
+        <tr>
+          <td>${c.name}</td>
+          <td>${c.department}</td>
+          <td>${c.title}</td>
+          <td>${c.description.length > 100 ? c.description.slice(0, 100) + '…' : c.description}</td>
+          <td style="font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px;">${c.time || ''}</td>
+          <td><span class="badge ${c.status}">${c.status === 'pending' ? '• Pending' : '✓ Resolved'}</span></td>
+          <td>
+            <button class="btn btn-ghost" data-act="toggle" data-idx="${realIdx}">${c.status === 'pending' ? 'Resolve' : 'Reopen'}</button>
+            <button class="btn btn-danger" data-act="delete" data-idx="${realIdx}" style="margin-left: 8px;">Delete</button>
+          </td>
+        </tr>`;
+    }).join('') : '<tr><td colspan="7" style="text-align:center;padding:24px;color:#90a4ae;">No complaints found</td></tr>';
 
-document.getElementById("complaintForm").addEventListener('submit', (e)=>{
-  e.preventDefault();
-  const name = $('#name').value.trim();
-  const department = $('#department').value.trim();
-  const title = $('#title').value.trim();
-  const description = $('#description').value.trim();
-  const time = new Date().toLocaleString();
+    // Render mobile cards
+    cards.innerHTML = data.length ? data.map((c, idx) => {
+      const realIdx = allData.findIndex(item => 
+        item.name === c.name && 
+        item.department === c.department && 
+        item.time === c.time
+      );
+      
+      return `
+        <div class="complaint-card">
+          <div class="title">${c.title}</div>
+          <div class="row"><span><strong>${c.name}</strong></span><span>${c.department}</span></div>
+          <div style="margin: 12px 0; color: var(--text);">${c.description}</div>
+          <div class="row"><span style="font-size: 12px;">${c.time || ''}</span><span class="badge ${c.status}">${c.status === 'pending' ? '• Pending' : '✓ Resolved'}</span></div>
+          <div class="card-actions">
+            <button class="btn btn-ghost" data-act="toggle" data-idx="${realIdx}">${c.status === 'pending' ? 'Mark resolved' : 'Reopen'}</button>
+            <button class="btn btn-danger" data-act="delete" data-idx="${realIdx}">Delete</button>
+          </div>
+        </div>`;
+    }).join('') : '<div style="text-align:center;padding:24px;color:#90a4ae;">No complaints to display</div>';
+  }
 
-  const list = getComplaints();
-  list.push({name, department, title, description, time, status:'pending'});
-  saveComplaints(list);
-  e.target.reset();
+  // Form submission
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = $('#name')?.value.trim();
+    const department = $('#department')?.value.trim();
+    const title = $('#title')?.value.trim();
+    const description = $('#description')?.value.trim();
+    
+    if (!name || !department || !title || !description) {
+      toast('Please fill all fields');
+      return;
+    }
+
+    const time = new Date().toLocaleString();
+    const list = getComplaints();
+    list.push({ name, department, title, description, time, status: 'pending' });
+    saveComplaints(list);
+    
+    form.reset();
+    buildDeptOptions();
+    render();
+    toast('Complaint submitted successfully');
+  });
+
+  // Action buttons (toggle/delete)
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-act]');
+    if (!btn) return;
+    
+    const idx = +btn.dataset.idx;
+    const act = btn.dataset.act;
+    const list = getComplaints();
+    
+    if (act === 'toggle') {
+      list[idx].status = list[idx].status === 'pending' ? 'resolved' : 'pending';
+      saveComplaints(list);
+      render();
+      toast(`Complaint marked as ${list[idx].status}`);
+    } else if (act === 'delete') {
+      if (confirm('Delete this complaint? This action cannot be undone.')) {
+        list.splice(idx, 1);
+        saveComplaints(list);
+        buildDeptOptions();
+        render();
+        toast('Complaint deleted');
+      }
+    }
+  });
+
+  // Debounced search/filter
+  const debounce = (fn, ms = 250) => {
+    let timer;
+    return (...args) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => fn(...args), ms);
+    };
+  };
+
+  [searchInput, statusFilter, deptFilter].forEach(el => {
+    if (el) el.addEventListener('input', debounce(render, 250));
+  });
+
+  // Initial render
   buildDeptOptions();
   render();
-  toast('Complaint submitted');
-});
+}
 
-document.addEventListener('click', (e)=>{
-  const btn = e.target.closest('button[data-act]');
-  if(!btn) return;
-  const idx = +btn.dataset.idx;
-  const act = btn.dataset.act;
-  const list = getComplaints();
-  if(act==='toggle'){
-    list[idx].status = list[idx].status==='pending' ? 'resolved':'pending';
-    saveComplaints(list); render();
-  } else if(act==='delete'){
-    if(confirm('Delete this complaint?')){ list.splice(idx,1); saveComplaints(list); buildDeptOptions(); render(); toast('Deleted'); }
-  }
-});
-
-const debounce = (fn, ms=250) => { let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), ms); } };
-[searchInput, statusFilter, deptFilter].forEach(el => el && el.addEventListener('input', debounce(render, 250)));
-
-buildDeptOptions();
-render();
+// Execute when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
