@@ -29,8 +29,15 @@
         </div>
         <div class="full">
           <label for="description">Description</label>
-          <textarea id="description" name="description" placeholder="Add relevant details" required></textarea>
+          <textarea id="description" name="description" placeholder="Add relevant details" maxlength="500" required></textarea>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+            <span style="font-size: 12px; color: #90a4ae;">Max 500 characters</span>
+            <span id="charCounter" style="font-size: 12px; color: #90a4ae; font-weight: 600;">0/500</span>
+          </div>
         </div>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" style="width: 0"></div>
       </div>
       <div class="actions">
         <button type="submit" class="btn btn-primary">Submit complaint</button>
@@ -38,6 +45,21 @@
     </form>
 
     <div class="card">
+      <div class="stats-container">
+        <div class="stat-card stat-total">
+          <div id="totalCount" class="stat-number">0</div>
+          <div class="stat-label">Total Complaints</div>
+        </div>
+        <div class="stat-card stat-pending">
+          <div id="pendingCount" class="stat-number">0</div>
+          <div class="stat-label">Pending</div>
+        </div>
+        <div class="stat-card stat-resolved">
+          <div id="resolvedCount" class="stat-number">0</div>
+          <div class="stat-label">Resolved</div>
+        </div>
+      </div>
+
       <div class="searchbar">
         <input type="search" id="searchInput" placeholder="Search by name, department, or title" />
         <select id="statusFilter">
@@ -49,6 +71,8 @@
           <option value="all">All departments</option>
         </select>
       </div>
+
+      <div id="filterChips"></div>
 
       <div class="table-wrap">
         <table id="complaintsTable">

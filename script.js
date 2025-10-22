@@ -6,16 +6,65 @@ const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
 const getComplaints = () => JSON.parse(localStorage.getItem(LS_KEY) || '[]');
 const saveComplaints = (data) => localStorage.setItem(LS_KEY, JSON.stringify(data));
 
-const toast = (msg) => {
+// Enhanced toast with slide animation
+const toast = (msg, type = 'info') => {
   let t = $('#toast');
   if(!t){ 
     t = document.createElement('div'); 
     t.id='toast'; 
     document.body.appendChild(t); 
   }
+  
+  t.classList.remove('hiding');
+  
+  const colors = {
+    success: '#2a9d8f',
+    error: '#e76f51',
+    info: '#263238'
+  };
+  t.style.background = colors[type] || colors.info;
+  
   t.textContent = msg; 
-  t.style.opacity='1'; 
-  setTimeout(()=> t.style.opacity='0', 2500);
+  t.style.opacity = '1';
+  
+  setTimeout(() => {
+    t.classList.add('hiding');
+    setTimeout(() => {
+      t.style.opacity = '0';
+      t.classList.remove('hiding');
+    }, 300);
+  }, 2500);
+};
+
+// Loading skeleton generator
+const showLoadingSkeleton = (container, rows = 3) => {
+  const skeletons = Array.from({length: rows}, () => 
+    '<div class="skeleton skeleton-row"></div>'
+  ).join('');
+  container.innerHTML = skeletons;
+};
+
+// Animate number count-up
+const animateCounter = (element, target, duration = 800) => {
+  const start = parseInt(element.textContent) || 0;
+  const increment = (target - start) / (duration / 16);
+  let current = start;
+  
+  const timer = setInterval(() => {
+    current += increment;
+    if ((increment > 0 && current >= target) || (increment < 0 && current <= target)) {
+      element.textContent = target;
+      clearInterval(timer);
+    } else {
+      element.textContent = Math.floor(current);
+    }
+  }, 16);
+};
+
+// Add status change animation
+const animateStatusChange = (badge) => {
+  badge.classList.add('status-changed');
+  setTimeout(() => badge.classList.remove('status-changed'), 500);
 };
 
 // Initialize after DOM is ready
@@ -26,12 +75,37 @@ function init() {
   const tbody = $('#complaintsTable tbody');
   const cards = $('#complaintCards');
   const form = $('#complaintForm');
+  const filterChipsContainer = $('#filterChips');
 
-  // Guard against missing elements
   if (!tbody || !cards || !form) {
     console.error('Required DOM elements not found');
     return;
   }
+
+  // Form progress indicator
+  const updateFormProgress = () => {
+    const fields = ['#name', '#department', '#title', '#description'];
+    const filled = fields.filter(sel => $(sel)?.value.trim()).length;
+    const progress = (filled / fields.length) * 100;
+    
+    const progressBar = $('.progress-fill');
+    if (progressBar) progressBar.style.width = `${progress}%`;
+  };
+
+  // Character counter for description
+  const updateCharCount = () => {
+    const desc = $('#description');
+    const counter = $('#charCounter');
+    if (!desc || !counter) return;
+    
+    const length = desc.value.length;
+    const max = 500;
+    counter.textContent = `${length}/${max}`;
+    
+    if (length > max * 0.9) counter.style.color = '#e76f51';
+    else if (length > max * 0.7) counter.style.color = '#f4a261';
+    else counter.style.color = '#90a4ae';
+  };
 
   const buildDeptOptions = () => {
     if (!deptFilter) return;
@@ -56,13 +130,49 @@ function init() {
     });
   };
 
+  // Show active filter chips
+  const updateFilterChips = () => {
+    if (!filterChipsContainer) return;
+    
+    const chips = [];
+    const f = filters();
+    
+    if (f.q) chips.push({type: 'search', label: `Search: "${f.q}"`});
+    if (f.dept !== 'all') chips.push({type: 'dept', label: `Dept: ${f.dept}`});
+    if (f.status !== 'all') chips.push({type: 'status', label: `Status: ${f.status}`});
+    
+    filterChipsContainer.innerHTML = chips.map(chip => `
+      <span class="filter-chip">
+        ${chip.label}
+        <span class="remove" onclick="clearFilter('${chip.type}')">×</span>
+      </span>
+    `).join('');
+  };
+
+  window.clearFilter = (type) => {
+    if (type === 'search') searchInput.value = '';
+    if (type === 'dept') deptFilter.value = 'all';
+    if (type === 'status') statusFilter.value = 'all';
+    render();
+  };
+
+  // Update stats with animation
+  const updateStats = () => {
+    const all = getComplaints();
+    const pending = all.filter(c => c.status === 'pending').length;
+    const resolved = all.filter(c => c.status === 'resolved').length;
+    
+    if ($('#totalCount')) animateCounter($('#totalCount'), all.length);
+    if ($('#pendingCount')) animateCounter($('#pendingCount'), pending);
+    if ($('#resolvedCount')) animateCounter($('#resolvedCount'), resolved);
+  };
+
   function render() {
     const allData = getComplaints();
     const data = applyFilters(allData);
     
     // Render table
     tbody.innerHTML = data.length ? data.map((c, idx) => {
-      // Find real index in unfiltered array for actions
       const realIdx = allData.findIndex(item => 
         item.name === c.name && 
         item.department === c.department && 
@@ -76,7 +186,7 @@ function init() {
           <td>${c.title}</td>
           <td>${c.description.length > 100 ? c.description.slice(0, 100) + '…' : c.description}</td>
           <td style="font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px;">${c.time || ''}</td>
-          <td><span class="badge ${c.status}">${c.status === 'pending' ? '• Pending' : '✓ Resolved'}</span></td>
+          <td><span class="badge ${c.status}" data-idx="${realIdx}">${c.status === 'pending' ? '• Pending' : '✓ Resolved'}</span></td>
           <td>
             <button class="btn btn-ghost" data-act="toggle" data-idx="${realIdx}">${c.status === 'pending' ? 'Resolve' : 'Reopen'}</button>
             <button class="btn btn-danger" data-act="delete" data-idx="${realIdx}" style="margin-left: 8px;">Delete</button>
@@ -97,13 +207,16 @@ function init() {
           <div class="title">${c.title}</div>
           <div class="row"><span><strong>${c.name}</strong></span><span>${c.department}</span></div>
           <div style="margin: 12px 0; color: var(--text);">${c.description}</div>
-          <div class="row"><span style="font-size: 12px;">${c.time || ''}</span><span class="badge ${c.status}">${c.status === 'pending' ? '• Pending' : '✓ Resolved'}</span></div>
+          <div class="row"><span style="font-size: 12px;">${c.time || ''}</span><span class="badge ${c.status}" data-idx="${realIdx}">${c.status === 'pending' ? '• Pending' : '✓ Resolved'}</span></div>
           <div class="card-actions">
             <button class="btn btn-ghost" data-act="toggle" data-idx="${realIdx}">${c.status === 'pending' ? 'Mark resolved' : 'Reopen'}</button>
             <button class="btn btn-danger" data-act="delete" data-idx="${realIdx}">Delete</button>
           </div>
         </div>`;
     }).join('') : '<div style="text-align:center;padding:24px;color:#90a4ae;">No complaints to display</div>';
+
+    updateStats();
+    updateFilterChips();
   }
 
   // Form submission
@@ -115,7 +228,7 @@ function init() {
     const description = $('#description')?.value.trim();
     
     if (!name || !department || !title || !description) {
-      toast('Please fill all fields');
+      toast('Please fill all fields', 'error');
       return;
     }
 
@@ -125,13 +238,26 @@ function init() {
     saveComplaints(list);
     
     form.reset();
+    updateFormProgress();
+    updateCharCount();
     buildDeptOptions();
     render();
-    toast('Complaint submitted successfully');
+    toast('Complaint submitted successfully', 'success');
   });
 
-  // Action buttons (toggle/delete)
+  // Action buttons (toggle/delete) and badge clicks
   document.addEventListener('click', (e) => {
+    // Handle badge clicks
+    const badge = e.target.closest('.badge');
+    if (badge && badge.dataset.idx !== undefined) {
+      const btn = badge.closest('tr, .complaint-card')?.querySelector('[data-act="toggle"]');
+      if (btn) {
+        btn.click();
+        return;
+      }
+    }
+
+    // Handle button clicks
     const btn = e.target.closest('button[data-act]');
     if (!btn) return;
     
@@ -143,14 +269,21 @@ function init() {
       list[idx].status = list[idx].status === 'pending' ? 'resolved' : 'pending';
       saveComplaints(list);
       render();
-      toast(`Complaint marked as ${list[idx].status}`);
+      
+      // Animate the badge after render
+      setTimeout(() => {
+        const updatedBadge = document.querySelector(`.badge[data-idx="${idx}"]`);
+        if (updatedBadge) animateStatusChange(updatedBadge);
+      }, 50);
+      
+      toast(`Complaint marked as ${list[idx].status}`, 'success');
     } else if (act === 'delete') {
       if (confirm('Delete this complaint? This action cannot be undone.')) {
         list.splice(idx, 1);
         saveComplaints(list);
         buildDeptOptions();
         render();
-        toast('Complaint deleted');
+        toast('Complaint deleted', 'info');
       }
     }
   });
@@ -167,6 +300,13 @@ function init() {
   [searchInput, statusFilter, deptFilter].forEach(el => {
     if (el) el.addEventListener('input', debounce(render, 250));
   });
+
+  // Wire up form progress and char counter
+  ['#name', '#department', '#title', '#description'].forEach(sel => {
+    $(sel)?.addEventListener('input', updateFormProgress);
+  });
+
+  $('#description')?.addEventListener('input', updateCharCount);
 
   // Initial render
   buildDeptOptions();
