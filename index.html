@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>College Complaint Registration System</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8" />
+  <title>College Complaint Registration System</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div class="header">
     <h1>College Complaint Registration System</h1>
-    <div class="sub">Register, track, and resolve complaints efficiently</div>
+    <div class="sub">Register, track, and resolve complaints</div>
   </div>
 
   <div class="container">
@@ -16,19 +16,19 @@
       <div class="form-grid">
         <div>
           <label for="name">Name</label>
-          <input id="name" name="name" placeholder="e.g., Arjun Sreejith" autocomplete="name" required />
+          <input id="name" name="name" autocomplete="name" required />
         </div>
         <div>
           <label for="department">Department</label>
-          <input id="department" name="department" placeholder="e.g., CSE" autocomplete="organization" required />
+          <input id="department" name="department" placeholder="e.g., CSE" required />
         </div>
         <div class="full">
           <label for="title">Issue Title</label>
-          <input id="title" name="title" placeholder="e.g., Lab PC not working" required />
+          <input id="title" name="title" required />
         </div>
         <div class="full">
           <label for="description">Description</label>
-          <textarea id="description" name="description" placeholder="Add relevant details" required></textarea>
+          <textarea id="description" name="description" required></textarea>
         </div>
       </div>
       <div class="actions">
@@ -69,6 +69,7 @@
       <div id="complaintCards" class="card-list"></div>
     </div>
   </div>
-</body>
 
+  <script src="script.js"></script>
+</body>
 </html>
