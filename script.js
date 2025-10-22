@@ -1,114 +1,108 @@
-// Helper to get complaint data from LocalStorage
-function getComplaints() {
-    return JSON.parse(localStorage.getItem('complaints')) || [];
-}
+const LS_KEY = 'complaints';
 
-// Helper to save complaint data to LocalStorage
-function saveComplaints(complaints) {
-    localStorage.setItem('complaints', JSON.stringify(complaints));
-}
+const $ = (sel, root=document) => root.querySelector(sel);
+const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
 
-// Handle form submission
-document.getElementById("complaintForm").onsubmit = function(e) {
-    e.preventDefault();
-    const name = document.getElementById("name").value;
-    const department = document.getElementById("department").value;
-    const title = document.getElementById("title").value;
-    const description = document.getElementById("description").value;
-    const time = new Date().toLocaleString();
-    const complaints = getComplaints();
+const getComplaints = () => JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+const saveComplaints = (data) => localStorage.setItem(LS_KEY, JSON.stringify(data));
 
-    complaints.push({
-        name,
-        department,
-        title,
-        description,
-        time,
-        status: "pending"
-    });
-
-    saveComplaints(complaints);
-    renderComplaints();
-    this.reset();
+const toast = (msg) => {
+  let t = $('#toast');
+  if(!t){ t = document.createElement('div'); t.id='toast'; Object.assign(t.style,{position:'fixed',bottom:'16px',right:'16px',background:'#263238',color:'#fff',padding:'10px 14px',borderRadius:'8px'}); document.body.appendChild(t); }
+  t.textContent = msg; t.style.opacity='1'; setTimeout(()=> t.style.opacity='0', 2000);
 };
 
-// Render complaints in the table
-function renderComplaints(filterComplaints) {
-    const complaints = filterComplaints || getComplaints();
-    const tbody = document.querySelector("#complaintsTable tbody");
-    tbody.innerHTML = "";
+const deptFilter = $('#deptFilter');
+const statusFilter = $('#statusFilter');
+const searchInput = $('#searchInput');
+const tbody = $('#complaintsTable tbody');
+const cards = $('#complaintCards');
 
-    complaints.forEach((complaint, idx) => {
-        const row = document.createElement("tr");
-        row.innerHTML = `
-            <td data-label="Name">${complaint.name}</td>
-            <td data-label="Department">${complaint.department}</td>
-            <td data-label="Title">${complaint.title}</td>
-            <td data-label="Description">${complaint.description}</td>
-            <td data-label="Time">${complaint.time || ''}</td>
-            <td data-label="Status">${complaint.status}</td>
-            <td data-label="Action">
-                <button onclick="updateStatus(${idx})">
-                    Mark as ${complaint.status === "pending" ? "resolved" : "pending"}
-                </button>
-                <button onclick="deleteComplaint(${idx})" style="margin-left: 5px; background-color: #e76f51;">
-                    Delete
-                </button>
-            </td>
-        `;
-
-        tbody.appendChild(row);
-    });
-}
-
-// Change status between pending and resolved
-window.updateStatus = function(idx) {
-    const complaints = getComplaints();
-    complaints[idx].status = complaints[idx].status === "pending" ? "resolved" : "pending";
-    saveComplaints(complaints);
-    renderComplaints();
+const buildDeptOptions = () => {
+  const depts = Array.from(new Set(getComplaints().map(c => c.department))).sort();
+  deptFilter.innerHTML = `<option value="all">All departments</option>` + depts.map(d=>`<option value="${d}">${d}</option>`).join('');
 };
 
-// Delete complaint by index
-window.deleteComplaint = function(idx) {
-    const complaints = getComplaints();
-    complaints.splice(idx, 1);
-    saveComplaints(complaints);
-    renderComplaints();
-};
-
-// Search complaints by title/department/name
-document.getElementById('searchInput').addEventListener('input', function() {
-    const query = this.value.toLowerCase();
-    const complaints = getComplaints();
-
-    const filtered = complaints.filter(c =>
-        c.name.toLowerCase().includes(query) ||
-        c.department.toLowerCase().includes(query) ||
-        c.title.toLowerCase().includes(query)
-    );
-
-    renderComplaints(filtered);
+const filters = () => ({
+  q: (searchInput.value || '').toLowerCase(),
+  dept: deptFilter?.value || 'all',
+  status: statusFilter?.value || 'all'
 });
 
-// Initial render on page load
-renderComplaints();
+const applyFilters = (list) => {
+  const f = filters();
+  return list.filter(c => {
+    const matchesQ = [c.name, c.department, c.title].some(v => (v||'').toLowerCase().includes(f.q));
+    const matchesDept = f.dept === 'all' || c.department === f.dept;
+    const matchesStatus = f.status === 'all' || c.status === f.status;
+    return matchesQ && matchesDept && matchesStatus;
+  });
+};
 
+function render(){
+  const data = applyFilters(getComplaints());
+  // Table
+  tbody.innerHTML = data.map((c, idx) => `
+    <tr>
+      <td>${c.name}</td>
+      <td>${c.department}</td>
+      <td>${c.title}</td>
+      <td>${c.description.length>120? c.description.slice(0,120)+'…' : c.description}</td>
+      <td style="font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">${c.time || ''}</td>
+      <td><span class="badge ${c.status}">${c.status==='pending'?'• Pending':'✓ Resolved'}</span></td>
+      <td>
+        <button class="btn btn-ghost" data-act="toggle" data-idx="${idx}">${c.status==='pending'?'Mark resolved':'Mark pending'}</button>
+        <button class="btn btn-danger" data-act="delete" data-idx="${idx}">Delete</button>
+      </td>
+    </tr>`).join('');
 
-row.innerHTML = `
-    <td data-label="Name">${complaint.name}</td>
-    <td data-label="Department">${complaint.department}</td>
-    <td data-label="Title">${complaint.title}</td>
-    <td data-label="Description">${complaint.description}</td>
-    <td data-label="Time">${complaint.time || ''}</td>
-    <td data-label="Status">${complaint.status}</td>
-    <td data-label="Action">
-        <button onclick="updateStatus(${idx})">
-            Mark as ${complaint.status === "pending" ? "resolved" : "pending"}
-        </button>
-        <button onclick="deleteComplaint(${idx})" style="margin-left: 5px; background-color: #e76f51;">
-            Delete
-        </button>
-    </td>
-`;
+  // Cards (mobile)
+  cards.innerHTML = data.map((c, idx) => `
+    <div class="complaint-card">
+      <div class="title">${c.title}</div>
+      <div class="row"><span>${c.name}</span><span>${c.department}</span></div>
+      <div>${c.description}</div>
+      <div class="row"><span>${c.time || ''}</span><span class="badge ${c.status}">${c.status==='pending'?'• Pending':'✓ Resolved'}</span></div>
+      <div class="card-actions">
+        <button class="btn btn-ghost" data-act="toggle" data-idx="${idx}">${c.status==='pending'?'Resolve':'Reopen'}</button>
+        <button class="btn btn-danger" data-act="delete" data-idx="${idx}">Delete</button>
+      </div>
+    </div>`).join('');
+}
 
+document.getElementById("complaintForm").addEventListener('submit', (e)=>{
+  e.preventDefault();
+  const name = $('#name').value.trim();
+  const department = $('#department').value.trim();
+  const title = $('#title').value.trim();
+  const description = $('#description').value.trim();
+  const time = new Date().toLocaleString();
+
+  const list = getComplaints();
+  list.push({name, department, title, description, time, status:'pending'});
+  saveComplaints(list);
+  e.target.reset();
+  buildDeptOptions();
+  render();
+  toast('Complaint submitted');
+});
+
+document.addEventListener('click', (e)=>{
+  const btn = e.target.closest('button[data-act]');
+  if(!btn) return;
+  const idx = +btn.dataset.idx;
+  const act = btn.dataset.act;
+  const list = getComplaints();
+  if(act==='toggle'){
+    list[idx].status = list[idx].status==='pending' ? 'resolved':'pending';
+    saveComplaints(list); render();
+  } else if(act==='delete'){
+    if(confirm('Delete this complaint?')){ list.splice(idx,1); saveComplaints(list); buildDeptOptions(); render(); toast('Deleted'); }
+  }
+});
+
+const debounce = (fn, ms=250) => { let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), ms); } };
+[searchInput, statusFilter, deptFilter].forEach(el => el && el.addEventListener('input', debounce(render, 250)));
+
+buildDeptOptions();
+render();
