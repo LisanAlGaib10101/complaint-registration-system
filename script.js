@@ -45,9 +45,18 @@ const showLoadingSkeleton = (container, rows = 3) => {
   container.innerHTML = skeletons;
 };
 
-// Animate number count-up
+// Animate number count-up - FIXED VERSION
 const animateCounter = (element, target, duration = 800) => {
+  if (!element) return;
+  
   const start = parseInt(element.textContent) || 0;
+  
+  // If already at target, just set it (handles edge case)
+  if (start === target) {
+    element.textContent = target;
+    return;
+  }
+  
   const increment = (target - start) / (duration / 16);
   let current = start;
   
@@ -209,9 +218,9 @@ function init() {
     render();
   };
 
-  // Update stats with animation
+  // Update stats with animation - ALWAYS READS FRESH DATA
   const updateStats = () => {
-    const all = getComplaints();
+    const all = getComplaints();  // Gets fresh data from localStorage every time
     const pending = all.filter(c => c.status === 'pending').length;
     const resolved = all.filter(c => c.status === 'resolved').length;
     
@@ -335,7 +344,7 @@ function init() {
         list.splice(idx, 1);
         saveComplaints(list);
         buildDeptOptions();
-        render();
+        render();  // render() calls updateStats() which reads fresh data
         toast('Complaint deleted', 'info');
       }
     }
