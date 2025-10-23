@@ -18,11 +18,12 @@ const toast = (msg, type = 'info') => {
   t.classList.remove('hiding');
   
   const colors = {
-    success: '#2a9d8f',
-    error: '#e76f51',
-    info: '#263238'
+    success: 'var(--success)',
+    error: 'var(--danger)',
+    info: 'var(--primary)'
   };
   t.style.background = colors[type] || colors.info;
+  t.style.color = 'white';
   
   t.textContent = msg; 
   t.style.opacity = '1';
@@ -67,6 +68,58 @@ const animateStatusChange = (badge) => {
   setTimeout(() => badge.classList.remove('status-changed'), 500);
 };
 
+// Theme management
+const themeManager = {
+  key: 'app-theme',
+  
+  init() {
+    const saved = localStorage.getItem(this.key);
+    const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const theme = saved || (systemDark ? 'dark' : 'light');
+    this.apply(theme);
+    this.setupListeners();
+  },
+  
+  apply(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem(this.key, theme);
+    
+    // Update active state in menu
+    document.querySelectorAll('.theme-option').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.theme === theme);
+    });
+  },
+  
+  setupListeners() {
+    const toggleBtn = $('#themeToggle');
+    const menu = $('#themeMenu');
+    
+    if (!toggleBtn || !menu) return;
+    
+    // Toggle menu
+    toggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      menu.classList.toggle('active');
+    });
+    
+    // Close menu when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.theme-switcher')) {
+        menu.classList.remove('active');
+      }
+    });
+    
+    // Theme selection
+    document.querySelectorAll('.theme-option').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.apply(btn.dataset.theme);
+        menu.classList.remove('active');
+        toast(`Switched to ${btn.textContent.trim().split(' ')[1]} theme`, 'success');
+      });
+    });
+  }
+};
+
 // Initialize after DOM is ready
 function init() {
   const deptFilter = $('#deptFilter');
@@ -102,9 +155,9 @@ function init() {
     const max = 500;
     counter.textContent = `${length}/${max}`;
     
-    if (length > max * 0.9) counter.style.color = '#e76f51';
-    else if (length > max * 0.7) counter.style.color = '#f4a261';
-    else counter.style.color = '#90a4ae';
+    if (length > max * 0.9) counter.style.color = 'var(--danger)';
+    else if (length > max * 0.7) counter.style.color = 'var(--pending)';
+    else counter.style.color = 'var(--muted)';
   };
 
   const buildDeptOptions = () => {
@@ -192,7 +245,7 @@ function init() {
             <button class="btn btn-danger" data-act="delete" data-idx="${realIdx}" style="margin-left: 8px;">Delete</button>
           </td>
         </tr>`;
-    }).join('') : '<tr><td colspan="7" style="text-align:center;padding:24px;color:#90a4ae;">No complaints found</td></tr>';
+    }).join('') : '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted);">No complaints found</td></tr>';
 
     // Render mobile cards
     cards.innerHTML = data.length ? data.map((c, idx) => {
@@ -213,7 +266,7 @@ function init() {
             <button class="btn btn-danger" data-act="delete" data-idx="${realIdx}">Delete</button>
           </div>
         </div>`;
-    }).join('') : '<div style="text-align:center;padding:24px;color:#90a4ae;">No complaints to display</div>';
+    }).join('') : '<div style="text-align:center;padding:24px;color:var(--muted);">No complaints to display</div>';
 
     updateStats();
     updateFilterChips();
@@ -315,7 +368,11 @@ function init() {
 
 // Execute when DOM is ready
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
+  document.addEventListener('DOMContentLoaded', () => {
+    themeManager.init();
+    init();
+  });
 } else {
+  themeManager.init();
   init();
 }

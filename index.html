@@ -12,6 +12,20 @@
     <div class="sub">Register, track, and resolve complaints efficiently</div>
   </div>
 
+  <!-- Theme switcher -->
+  <div class="theme-switcher">
+    <button id="themeToggle" class="theme-btn" aria-label="Change theme">
+      <span class="theme-icon">🎨</span>
+      <span class="theme-name">Theme</span>
+    </button>
+    <div id="themeMenu" class="theme-menu">
+      <button class="theme-option" data-theme="light">☀️ Light</button>
+      <button class="theme-option" data-theme="dark">🌙 Dark</button>
+      <button class="theme-option" data-theme="ocean">🌊 Ocean</button>
+      <button class="theme-option" data-theme="sunset">🌅 Sunset</button>
+    </div>
+  </div>
+
   <div class="container">
     <form id="complaintForm" class="card">
       <div class="form-grid">
@@ -31,8 +45,8 @@
           <label for="description">Description</label>
           <textarea id="description" name="description" placeholder="Add relevant details" maxlength="500" required></textarea>
           <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
-            <span style="font-size: 12px; color: #90a4ae;">Max 500 characters</span>
-            <span id="charCounter" style="font-size: 12px; color: #90a4ae; font-weight: 600;">0/500</span>
+            <span style="font-size: 12px; color: var(--muted);">Max 500 characters</span>
+            <span id="charCounter" style="font-size: 12px; color: var(--muted); font-weight: 600;">0/500</span>
           </div>
         </div>
       </div>
